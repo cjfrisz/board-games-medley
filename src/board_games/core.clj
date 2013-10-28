@@ -1,6 +1,16 @@
-(ns board-games.core)
+;;----------------------------------------------------------------------
+;; File core.clj
+;; Written by Chris Frisz
+;; 
+;; Created 27 Oct 2013
+;; Last modified 27 Oct 2013
+;; 
+;; 
+;;----------------------------------------------------------------------
 
-(defn foo
-  "I don't do a whole lot."
-  [x]
-  (println x "Hello, World!"))
+(ns board-games.core
+  (:require [board-games.pirates-and-bulgars :as pb]))
+
+(defn -main
+  [& args]
+  (pb/verify-board (pb/make-game-board)))
