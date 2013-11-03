@@ -130,23 +130,71 @@
 (defrecord Piece [row col])
 
 (defn make-piece [row col] (Piece. row col))
-(def get-piece-row :row)
-(def get-piece-col :col)
-(defn update-piece-row [piece new-row] (assoc piece :row new-row))
-(defn update-piece-col [piece new-col] (assoc piece :col new-col))
+(def get-row :row)
+(def get-col :col)
+(defn update-row [piece new-row] (assoc piece :row new-row))
+(defn update-col [piece new-col] (assoc piece :col new-col))
 
 (defn init-pirate* [board]
   (mapv (comp (partial apply make-piece) (juxt get-row get-col))
-    (filterv (comp (partial not fort-space?) (juxt get-row get-col))
+    (filterv (comp not (partial apply fort-space?) (juxt get-row get-col))
       board)))
 
-;; NB: according to the rules, this depends on player choice
-(defn init-bulgar* [board]
-  (mapv (partial apply make-piece)
-    (take 2
-      (shuffle (filterv (comp fort-space? 
-                          (juxt get-row get-col)) 
-                 board)))))
+(defrecord GameEnv [state board pirate* bulgar* turn*])
 
-(defrecord+ GameEnvironment [board pirate* bulgar* turn*])
-                               
+(defn make-game-env
+  [state board pirate* bulgar* turn*]
+  (GameEnv. state board pirate* bulgar* turn*))
+(defn get-state [game-env] (:state game-env))
+(defn get-board [game-env] (:board game-env))
+(defn get-pirate* [game-env] (:pirate* game-env))
+(defn get-bulgar* [game-env] (:bulgar* game-env))
+(defn get-turn* [game-env] (:turn* game-env))
+(defn update-state [game-env new-state] (assoc game-env :state new-state))
+(defn update-board [game-env new-board] (assoc game-env :board new-board))
+(defn update-pirate* [game-env new-pirate*] (assoc game-env :pirate* new-pirate*))
+(defn update-bulgar* [game-env new-bulgar*] (assoc game-env :bulgar* new-bulgar*))
+(defn update-turn* [game-env new-turn*] (assoc game-env :turn* new-turn*))
+
+(defn make-fresh-game-env []
+  (let [board (make-game-board)]
+    (make-game-env :setup1
+      board
+      (init-pirate* board)
+      []
+      [])))
+
+(defn add-bulgar
+  [game-env bulgar]
+  (update-bulgar* game-env (conj (get-bulgar* game-env) bulgar)))
+
+(defn remove-pirate
+  [game-env pirate]
+  (update-pirate* game-env (filter (partial = pirate) (get-pirate* game-env))))
+
+(defn player-input-coords []
+  (print "enter row to place bulgar: ")
+  (flush)
+  (let [row (Integer. (read-line))]
+    (print "enter column to place bulgar: ")
+    (flush)
+    (let [col (Integer. (read-line))]
+      [row col])))
+    
+(defn run-game
+  [game-env]
+  (case (get-state game-env)
+    :setup1 (do
+              (println "choose location for first bulgar")
+              (let [[row col] (player-input-coords)]
+                (-> game-env
+                    (add-bulgar (make-piece row col))
+                    (update-state :setup2)
+                    recur)))
+    :setup2 (do
+              (println "choose location for second bulgar")
+              (let [[row col] (player-input-coords)]
+                (-> game-env
+                    (add-bulgar (make-piece row col))
+                    (update-state :pirate-turn)))
+              (println "setup complete\n"))))

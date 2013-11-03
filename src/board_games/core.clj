@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created 27 Oct 2013
-;; Last modified 27 Oct 2013
+;; Last modified  2 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -13,4 +13,4 @@
 
 (defn -main
   [& args]
-  (pb/verify-board (pb/make-game-board)))
+  (pb/run-game (pb/make-fresh-game-env)))
