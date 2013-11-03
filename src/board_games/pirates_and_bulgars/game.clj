@@ -10,7 +10,8 @@
 
 (ns board-games.pirates-and-bulgars.game
   (:require [board-games.pirates-and-bulgars.game-env :as game-env]
-            [board-games.pirates-and-bulgars.piece :as piece]))
+            [board-games.pirates-and-bulgars.piece :as piece]
+            [board-games.pirates-and-bulgars.render :as render]))
 
 (defn player-input-coords []
   (print "enter row to place bulgar: ")
@@ -23,6 +24,7 @@
     
 (defn run-game
   [game-env]
+  (render/render-game game-env)
   (case (game-env/get-state game-env)
     :setup1 (do
               (println "choose location for first bulgar")
