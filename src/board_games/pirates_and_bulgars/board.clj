@@ -1,41 +1,21 @@
 ;;----------------------------------------------------------------------
-;; File pirates_and_bulgars.clj
+;; File board.clj
 ;; Written by Chris Frisz
 ;; 
-;; Created 27 Oct 2013
-;; Last modified  2 Nov 2013
+;; Created  3 Nov 2013
+;; Last modified  3 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
 
-(ns board-games.pirates-and-bulgars
-  (:require [clojure.string :as string]))
-
-(defn make-factory-name
-  [name]
-  (symbol 
-   (str "make" 
-     (string/lower-case (string/replace name #"([A-Z])" "-$1")))))
-
-(defmacro defrecord+
-  [name field* & spec*]
-  `(do
-     (defrecord ~name ~(vec field*) ~@spec*)
-     (defn ~(make-factory-name name)
-       ~(vec field*)
-       (~(symbol (str name ".")) ~@field*))
-     ~@(for [field field*]
-         `(def ~(symbol (str "get-" field)) ~(keyword field)))
-     ~@(for [field field*]
-         `(defn ~(symbol (str "update-" field))
-            [record# new-val#]
-            (assoc record# ~(keyword field) new-val#)))))
+(ns board-games.pirates-and-bulgars.board
+  (:require [board-games.pirates-and-bulgars.utils :refer [defrecord+]]))
 
 (defrecord+ Space [row col adj* fort?])
 
 ;; Board layout
 ;; Normal (sea) spaces represented by *
-;; Fort spaces represented by F
+;; Fort spaces represented by ^
 ;; Spaces connected by -, |, \, or / indicates they are connected
 ;;
 ;;         * - * - *
@@ -46,11 +26,11 @@
 ;; | \ | / | \ | / | \ | / |
 ;; * - * - * - * - * - * - *
 ;; | / | \ | / | \ | / | \ |
-;; * - * - F - F - F - * - *
+;; * - * - ^ - ^ - ^ - * - *
 ;;         | \ | / |
-;;         F - F - F
+;;         ^ - ^ - ^
 ;;         | / | \ |
-;;         F - F - F
+;;         ^ - ^ - ^
   
 (defn make-game-board []
   (mapv (partial apply make-space)
@@ -126,75 +106,3 @@
     (when (and fort? (not (fort-space? row col)))
       (throw (Exception. (str "space " [row col] " incorrectly labelled"
                            " as fort space"))))))
-
-(defrecord Piece [row col])
-
-(defn make-piece [row col] (Piece. row col))
-(def get-row :row)
-(def get-col :col)
-(defn update-row [piece new-row] (assoc piece :row new-row))
-(defn update-col [piece new-col] (assoc piece :col new-col))
-
-(defn init-pirate* [board]
-  (mapv (comp (partial apply make-piece) (juxt get-row get-col))
-    (filterv (comp not (partial apply fort-space?) (juxt get-row get-col))
-      board)))
-
-(defrecord GameEnv [state board pirate* bulgar* turn*])
-
-(defn make-game-env
-  [state board pirate* bulgar* turn*]
-  (GameEnv. state board pirate* bulgar* turn*))
-(defn get-state [game-env] (:state game-env))
-(defn get-board [game-env] (:board game-env))
-(defn get-pirate* [game-env] (:pirate* game-env))
-(defn get-bulgar* [game-env] (:bulgar* game-env))
-(defn get-turn* [game-env] (:turn* game-env))
-(defn update-state [game-env new-state] (assoc game-env :state new-state))
-(defn update-board [game-env new-board] (assoc game-env :board new-board))
-(defn update-pirate* [game-env new-pirate*] (assoc game-env :pirate* new-pirate*))
-(defn update-bulgar* [game-env new-bulgar*] (assoc game-env :bulgar* new-bulgar*))
-(defn update-turn* [game-env new-turn*] (assoc game-env :turn* new-turn*))
-
-(defn make-fresh-game-env []
-  (let [board (make-game-board)]
-    (make-game-env :setup1
-      board
-      (init-pirate* board)
-      []
-      [])))
-
-(defn add-bulgar
-  [game-env bulgar]
-  (update-bulgar* game-env (conj (get-bulgar* game-env) bulgar)))
-
-(defn remove-pirate
-  [game-env pirate]
-  (update-pirate* game-env (filter (partial = pirate) (get-pirate* game-env))))
-
-(defn player-input-coords []
-  (print "enter row to place bulgar: ")
-  (flush)
-  (let [row (Integer. (read-line))]
-    (print "enter column to place bulgar: ")
-    (flush)
-    (let [col (Integer. (read-line))]
-      [row col])))
-    
-(defn run-game
-  [game-env]
-  (case (get-state game-env)
-    :setup1 (do
-              (println "choose location for first bulgar")
-              (let [[row col] (player-input-coords)]
-                (-> game-env
-                    (add-bulgar (make-piece row col))
-                    (update-state :setup2)
-                    recur)))
-    :setup2 (do
-              (println "choose location for second bulgar")
-              (let [[row col] (player-input-coords)]
-                (-> game-env
-                    (add-bulgar (make-piece row col))
-                    (update-state :pirate-turn)))
-              (println "setup complete\n"))))
