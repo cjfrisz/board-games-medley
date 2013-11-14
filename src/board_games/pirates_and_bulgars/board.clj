@@ -87,27 +87,3 @@
   [[row col]]
   (or (some #{row} [5 6])
       (and (= row 4) (some #{col} [2 3 4]))))
-
-(defn verify-board
-  [board]
-  (when-not (= (count board) 33)
-    (throw (Exception. (str "incorrect number of spacse: " (count board)
-                         " (expected 33)"))))
-  ;; transitive closure of adjacency
-  (doseq [space board
-          :let [coords (get-coords space)]]
-    (doseq [adj-coords (get-adj* space)
-            :let [adj-space (get-space board adj-coords)]]
-      (when-not (some (partial = coords) (get-adj* adj-space))
-        (throw (Exception. (str "space at " adj-coords " disputes"
-                             " adjacency with " coords))))))
-  ;; fort spaces
-  (doseq [space board
-          :let [fort? (get-fort? space)
-                coords (get-coords space)]]
-    (when (and (not fort?) (fort-space? coords))
-      (throw (Exception. (str "space " coords " incorrectly labelled"
-                           " as non-fort space"))))
-    (when (and fort? (not (fort-space? coords)))
-      (throw (Exception. (str "space " coords " incorrectly labelled"
-                           " as fort space"))))))
