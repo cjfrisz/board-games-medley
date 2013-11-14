@@ -15,6 +15,44 @@
             [board-games.pirates-and-bulgars.piece :as piece]
             [board-games.pirates-and-bulgars.render :as render]))
 
+(defn space-occupied?
+  [game-env coords]
+  (some (comp (partial = coords) piece/get-coords)
+    (apply concat ((juxt game-env/get-pirate*
+                     game-env/get-bulgar*)
+                    game-env))))
+
+(defn is-adjacent-move?
+  [board src-coords dst-coords]
+  (some #{src-coords}
+    (board/get-adj* (board/get-space board dst-coords))))
+
+(defn is-jump-move?
+  [board src-coords dst-coords]
+  ;; NB: consider rewriting this in terms of set intersections
+  (and (some (partial is-adjacent-move? board src-coords)
+         (board/get-adj* (board/get-space board dst-coords)))
+       (let [[src-row src-col] src-coords
+             [dst-row dst-col] dst-coords]
+         (or (= src-row dst-row)
+             (= src-col dst-col)
+             ;; middle school math!
+             (let [slope (/ (- dst-col src-col) (- dst-row src-row))]
+               (or (= slope 1) (= slope -1)))))))
+
+(defn is-valid-pirate-move?
+  [game-env pirate-coords dst-coords]
+  (and (is-adjacent-move? (game-env/get-board game-env)
+         pirate-coords
+         dst-coords)
+       (not (space-occupied? game-env dst-coords))))
+
+(defn is-valid-bulgar-move?
+  [game-env bulgar-coords dst-coords]
+  (and (not (space-occupied? game-env dst-coords))
+       ((some-fn is-adjacent-move? is-jump-move?)
+         (game-env/get-board game-env) bulgar-coords dst-coords)))
+
 (defn player-input-coords []
   (print "enter coordinates to place a bulgar: ")
   (flush)
@@ -37,49 +75,6 @@
              (println "column value must be a number 1-7")
              (recur))
           :else [(- (int row) (int \A)) (- (int col) (int \1))])))))
-
-(defn space-occupied?
-  [game-env coords]
-  (some (comp (partial = coords) piece/get-coords)
-    (apply concat ((juxt game-env/get-pirate*
-                     game-env/get-bulgar*)
-                    game-env))))
-
-(defn is-adjacent-move?
-  [board src-coords dst-coords]
-  (some #{src-coords}
-    (board/get-adj* (apply board/get-space board dst-coords))))
-
-(defn is-jump-move?
-  [board src-coords dst-coords]
-  (and (some (partial apply is-adjacent-move? src-coords)
-         (board/get-adj* (board/get-space board dst-coords)))
-       (let [[src-row src-col] src-coords
-             [dst-row dst-col] dst-coords]
-         (or (= src-row dst-row)
-             (= src-col dst-col)
-             ;; middle school math!
-             (let [slope (/ (- dst-col src-col) (- dst-row src-row))]
-               (or (= slope 1) (= slope -1)))))))
-
-(defn is-valid-pirate-move?
-  [game-env pirate-row pirate-col dst-row dst-col]
-  (and (is-adjacent-move? (game-env/get-board game-env)
-         pirate-row
-         pirate-col
-         dst-row
-         dst-col)
-       (not (space-occupied? game-env dst-row dst-col))))
-
-(defn is-valid-bulgar-move?
-  [game-env bulgar-row bulgar-col dst-row dst-col]
-  (and (not (space-occupied? game-env dst-row dst-col))
-       ((some-fn is-adjacent-move? is-jump-move?)
-         (game-env/get-board game-env)
-         bulgar-row
-         bulgar-col
-         dst-row
-         dst-col)))
  
 (defn run-game
   [game-env]
