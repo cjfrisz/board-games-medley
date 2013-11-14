@@ -16,11 +16,8 @@
 (defrecord+ GameEnv [state board pirate* bulgar* turn*])
 
 (defn init-pirate* [board]
-  (mapv (comp (partial apply piece/make-piece) 
-          (juxt piece/get-row piece/get-col))
-    (filterv (comp not (partial apply board/fort-space?) 
-               (juxt board/get-row board/get-col))
-      board)))
+  (mapv (comp piece/make-piece board/get-coords)
+    (filterv (comp not board/fort-space? board/get-coords) board)))
 
 (defn make-fresh-game-env []
   (let [board (board/make-game-board)]

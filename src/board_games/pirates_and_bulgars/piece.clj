@@ -11,4 +11,4 @@
 (ns board-games.pirates-and-bulgars.piece
   (:require [board-games.pirates-and-bulgars.record :refer [defrecord+]]))
 
-(defrecord+ Piece [row col])
+(defrecord+ Piece [coords])

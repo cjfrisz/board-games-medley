@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created  3 Nov 2013
-;; Last modified  3 Nov 2013
+;; Last modified 13 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -18,32 +18,37 @@
   (let [board (game-env/get-board game-env)
         pirate* (game-env/get-pirate* game-env)
         bulgar* (game-env/get-bulgar* game-env)
-        row-connector* ["        | \\ | / |"
-                        "        | / | \\ |"
-                        "| \\ | / | \\ | / | \\ | / |"
-                        "| / | \\ | / | \\ | / | \\ |"
-                        "        | \\ | / |"
-                        "        | / | \\ |"]]
+        row-connector* ["            | \\ | / |"
+                        "            | / | \\ |"
+                        "    | \\ | / | \\ | / | \\ | / |"
+                        "    | / | \\ | / | \\ | / | \\ |"
+                        "            | \\ | / |"
+                        "            | / | \\ |"]
+        row-label* ["A" "B" "C" "D" "E" "F" "G"]]
+    ;; column labels
+    (println "    1   2   3   4   5   6   7")
+    (newline)
     ;; NB: representation dependence
     (doseq [row-idx (range 0 (inc (reduce max 0 (map board/get-row board))))]
+      (print (str (get row-label* row-idx) "   "))
       ;; NB: double representation dependence
       (let [col-max (reduce max 0 
-                      (map board/get-col
-                        (filter (comp (partial = row-idx) board/get-row)
+                      (map board/get-row
+                        (filter (comp (partial = row-idx) board/get-col)
                           board)))]
         (loop [col-idx 0
                rendered-space? false]
           (when-not (> col-idx col-max)
             (when rendered-space? (print " - "))
-            (if-let [space (board/get-space board row-idx col-idx)]
+            (if-let [space (board/get-space board [row-idx col-idx])]
               (let [on-this-space? (partial some 
                                      (comp (partial = [row-idx col-idx])
-                                     (juxt piece/get-row piece/get-col)))]
+                                       piece/get-coords))]
                 (cond
-                  (on-this-space? pirate*)            (print "P")
-                  (on-this-space? bulgar*)            (print "B")
-                  (board/fort-space? row-idx col-idx) (print "^")
-                  :else                               (print "*"))
+                  (on-this-space? pirate*)              (print "P")
+                  (on-this-space? bulgar*)              (print "B")
+                  (board/fort-space? [row-idx col-idx]) (print "^")
+                  :else                                 (print "*"))
                 (recur (inc col-idx) true))
               (do (print "    ") (recur (inc col-idx) false))))))
       (newline)
