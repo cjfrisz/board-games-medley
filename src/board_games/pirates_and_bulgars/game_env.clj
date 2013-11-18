@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created  3 Nov 2013
-;; Last modified 13 Nov 2013
+;; Last modified 17 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -34,3 +34,6 @@
 (defn remove-pirate
   [game-env pirate]
   (update-pirate* game-env (filter (partial = pirate) (get-pirate* game-env))))
+
+(defn pirate? [game-env piece] (some #{piece} (get-pirate* game-env)))
+(defn bulgar? [game-env piece] (some #{piece} (get-bulgar* game-env)))
