@@ -27,11 +27,13 @@
   (some #{src-coords}
     (board/get-adj* (board/get-space board dst-coords))))
 
+(defn get-mid-coords
+  [[row1 col1] [row2 col2]]
+  [(/ (+ row1 row2) 2) (/ (+ col1 col2) 2)])
+
 (defn is-jump-move?
   [board src-coords dst-coords]
-  (let [[src-row src-col] src-coords
-        [dst-row dst-col] dst-coords
-        mid-coords [(/ (+ src-row dst-row) 2) (/ (+ src-col dst-col) 2)]]
+  (let [mid-coords (get-mid-coords src-coords dst-coords)]
     (and (some #{mid-coords}
            (board/get-adj* (board/get-space board src-coords)))
          (some #{mid-coords}
@@ -91,20 +93,20 @@
                                       space-coords))]
                      space-coords)]
     (if (nil? (seq jump-move*))
-        jump-move*
-        (get-adjacent-moves game-env piece))))
+        (get-adjacent-moves game-env piece)
+        jump-move*)))
 
 (defn fort-captured?
   [game-env]
-  (every? #(some (partial = %) (game-env/get-pirate* game-env))
+  (every? #(some (partial = %)
+             (map piece/get-coords (game-env/get-pirate* game-env)))
     (map board/get-coords
       (filter board/get-fort? (game-env/get-board game-env)))))
 
 (defn bulgars-immobilized?
   [game-env]
-  ;; NB: no such function as enumerate moves!
-  (every? (comp nil? seq enumerate-bulgar-moves)
-    (game-env/get-bulgar*)))
+  (every? (comp nil? seq (partial enumerate-bulgar-moves game-env))
+    (game-env/get-bulgar* game-env)))
 
 (defn pirates-win?
   [game-env]
@@ -167,32 +169,82 @@
                (game-env/add-bulgar (piece/make-piece [row col]))
                (game-env/update-state next-state)))))
 
-(defn do-pirate-turn
-  [game-env]
-  (let [input-coords (player-input-coords
-                       "enter coordinates of pirate to move: ")]
-    (if (space-occupied? game-env input-coords)
-      (let [piece (get-piece-by-coords game-env input-coords)]
-        (if (game-env/pirate? game-env piece)
-          (let [move-coords (player-input-coords "enter space to move pirate: ")
-                valid-moves (enumerate-pirate-moves game-env piece)]
-            (if (some #{move-coords} valid-moves)
-              (-> game-env
-                  (game-env/update-pirate*
-                   (replace
-                    {piece
-                     (piece/update-coords piece  move-coords)}
-                    (game-env/get-pirate* game-env)))
-                  (game-env/update-state :bulgar-turn))
-              (do
-                (println "not a valid move for that piece")
-                (recur game-env))))
-          (do
-            (println "selected piece is not a pirate")
-            (recur game-env))))
+;; NB: this smacks of a macro
+(defn $do-turn
+  [game-env team-string piece-pred? handle-move]
+    (let [input-coords (player-input-coords (str "enter coordinates of "
+                                              team-string
+                                              " to move: "))]
+      (if (space-occupied? game-env input-coords)
+        (let [piece (get-piece-by-coords game-env input-coords)]
+          (if (piece-pred? game-env piece)
+            (handle-move game-env  piece
+              (player-input-coords
+                (str "enter space to move " team-string ": ")))
+            (do
+              (println "selected piece is not a " team-string)
+              (recur game-env team-string piece-pred? handle-move))))
+        (do
+          (println "no piece at those coordinates")
+          (recur game-env team-string piece-pred? handle-move)))))
+
+(declare do-turn)
+
+(defn handle-pirate-move
+  [game-env piece move-coords]
+  (let [valid-move* (enumerate-pirate-moves game-env piece)]
+    (if (some #{move-coords} valid-move*)
+      (-> game-env
+          (game-env/update-pirate*
+           (replace
+            {piece
+             (piece/update-coords piece move-coords)}
+            (game-env/get-pirate* game-env)))
+          (game-env/update-state :bulgar-turn))
       (do
-        (println "no piece at those coordinates")
-        (recur game-env)))))
+        (println "not a valid move for that piece")
+        (do-turn game-env :pirate-turn)))))
+
+(defn handle-bulgar-move
+  [game-env piece move-coords]
+  (let [board (game-env/get-board game-env)
+        piece-coords (piece/get-coords piece)]
+    (let [valid-move* (enumerate-bulgar-moves game-env piece)]
+      (if (some #{move-coords} valid-move*)
+          (if (is-jump-move? board piece-coords move-coords)
+            (let [captured (get-piece-by-coords game-env
+                             (get-mid-coords piece-coords move-coords))]
+              (if (game-env/pirate? game-env captured)
+                  (-> game-env
+                    (game-env/update-pirate*
+                      (remove #{captured} (game-env/get-pirate* game-env)))
+                    (game-env/update-bulgar*
+                      (replace {piece (piece/update-coords piece move-coords)}
+                        (game-env/get-bulgar* game-env)))
+                    (game-env/update-state :pirate-turn))
+                  (do
+                    (println "cannot jump over another bulgar")
+                    (do-turn game-env :bulgar-turn))))
+              (-> game-env
+                (game-env/update-bulgar*
+                 (replace {piece (piece/update-coords piece move-coords)}
+                   (game-env/get-bulgar* game-env)))
+                (game-env/update-state :pirate-turn)))
+          (do
+            (if (is-adjacent-move? (game-env/get-board game-env)
+                  piece-coords
+                  move-coords)
+                (println "selected bulgar has jump move(s) available")
+                (println "not a valid move for that piece"))
+            (do-turn game-env :bulgar-turn))))))
+
+(defn do-turn
+  [game-env turn]
+  (apply $do-turn game-env
+    (case turn
+      :pirate-turn ["pirate" game-env/pirate? handle-pirate-move]
+      :bulgar-turn ["bulgar" game-env/bulgar? handle-bulgar-move]
+      (throw (Exception. (str "invalid turn type " turn))))))
  
 (defn run-game
   [game-env]
@@ -204,5 +256,11 @@
     :setup2 (recur (do-setup game-env
                      "choose location for second bulgar"
                      :pirate-turn))
-    :pirate-turn (recur (do-pirate-turn game-env))
-    :bulgar-turn (println "bulgar turns not implemented yet!")))
+    :pirate-turn (let [new-game-env (do-turn game-env :pirate-turn)]
+                   (if (pirates-win? new-game-env)
+                       (println "pirates win!")
+                       (recur new-game-env)))
+    :bulgar-turn (let [new-game-env (do-turn game-env :bulgar-turn)]
+                   (if (bulgars-win? new-game-env)
+                       (println "bulgars win!")
+                       (recur new-game-env)))))
