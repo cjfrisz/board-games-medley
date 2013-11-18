@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created 27 Oct 2013
-;; Last modified 17 Nov 2013
+;; Last modified 18 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -51,23 +51,6 @@
                         (or (= slope1 slope2 1)
                             (= slope1 slope2 -1))))))))))
 
-;; NB: might be obviated by enumerate-pirate-moves
-#_(defn is-valid-pirate-move?
-  [game-env pirate-coords dst-coords]
-  (and (is-adjacent-move? (game-env/get-board game-env)
-         pirate-coords
-         dst-coords)
-       (not (space-occupied? game-env dst-coords))))
-
-;; NB: might be obviated by enumerate-bulgar-moves
-#_(defn is-valid-bulgar-move?
-  [game-env bulgar-coords dst-coords]
-  (and (not (space-occupied? game-env dst-coords))
-       (or (is-adjacent-move? board bulgar-coords dst-coords)
-           (let [[bulgar-row bulgar-col] bulgar-coords
-                 [dst-row dst-col] dst-coords]
-             (is-jump-move? board bulgar-coords dst-coords)))))
-
 (defn get-adjacent-moves
   [game-env piece]
   (let [board (game-env/get-board game-env)]
@@ -85,13 +68,9 @@
   (assert (some #{piece} (game-env/get-bulgar* game-env)))
   (let [piece-coords (piece/get-coords piece)
         board (game-env/get-board game-env)
-        jump-move* (for [space-coords (map board/get-coords board)
-                         :when (and (not (space-occupied? board
-                                           space-coords))
-                                    (is-jump-move? board
-                                      piece-coords
-                                      space-coords))]
-                     space-coords)]
+        jump-move* (filter (partial is-jump-move? board piece-coords)
+                     (remove (partial space-occupied? board)
+                       (map board/get-coords board)))]
     (if (nil? (seq jump-move*))
         (get-adjacent-moves game-env piece)
         jump-move*)))
@@ -146,6 +125,11 @@
              (println "column value must be a number 1-7")
              (recur instructions))
           :else [(- (int row) (int \A)) (- (int col) (int \1))])))))
+
+(defn coords->string
+  [coords]
+  (str (char (+ (first coords) (int \A)))
+    (char (+ (fnext coords) (int \1)))))
 
 (defn do-setup
   [game-env msg next-state]
@@ -212,16 +196,18 @@
     (let [valid-move* (enumerate-bulgar-moves game-env piece)]
       (if (some #{move-coords} valid-move*)
           (if (is-jump-move? board piece-coords move-coords)
-            (let [captured (get-piece-by-coords game-env
-                             (get-mid-coords piece-coords move-coords))]
+            (let [mid-coords (get-mid-coords piece-coords move-coords)
+                  captured (get-piece-by-coords game-env mid-coords)]
               (if (game-env/pirate? game-env captured)
-                  (-> game-env
-                    (game-env/update-pirate*
-                      (remove #{captured} (game-env/get-pirate* game-env)))
-                    (game-env/update-bulgar*
-                      (replace {piece (piece/update-coords piece move-coords)}
-                        (game-env/get-bulgar* game-env)))
-                    (game-env/update-state :pirate-turn))
+                  (do
+                    (println "captured pirate at" (coords->string mid-coords))
+                    (-> game-env
+                      (game-env/update-pirate*
+                        (remove #{captured} (game-env/get-pirate* game-env)))
+                      (game-env/update-bulgar*
+                        (replace {piece (piece/update-coords piece move-coords)}
+                          (game-env/get-bulgar* game-env)))
+                      (game-env/update-state :pirate-turn)))
                   (do
                     (println "cannot jump over another bulgar")
                     (do-turn game-env :bulgar-turn))))
