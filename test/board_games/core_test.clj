@@ -37,106 +37,33 @@
                                 (map board/get-coords board))
                 :let [non-adj-coords (board/get-coords non-adj-space)]]
           (is (not (game/is-adjacent-move? board coords non-adj-coords))))))
-    ;; TODO: combine the following four tests into one
-    ;; TODO: test that *all* spaces not two spaces away along adjacency
-    ;;       lines return false for is-jump-move
-    (testing "left-to-right jumps are valid"
-      ;; NB: pretty nasty representation dependence
-      (doseq [space (filter (comp (partial board/get-space board)
-                              (juxt first (comp inc inc fnext))
-                              board/get-coords)
-                      board)
-              :let [[row col] (board/get-coords space)]]
-        (is (game/is-jump-move? board [row col] [row (+ col 2)]))))
-    (testing "right-to-left jumps are valid"
-      ;; NB: pretty nasty representation dependence
-      (doseq [space (filter (comp (partial board/get-space board)
-                              (juxt first (comp dec dec fnext))
-                              board/get-coords)
-                      board)
-              :let [[row col] (board/get-coords space)]]
-        (is (game/is-jump-move? board [row col] [row (- col 2)]))))
-    (testing "top-to-bottom jumps are valid"
-      ;; NB: pretty nasty representation dependence
-      (doseq [space (filter (comp (partial board/get-space board)
-                              (juxt (comp inc inc first) fnext)
-                              board/get-coords)
-                      board)
-              :let [[row col] (board/get-coords space)]]
-        (is (game/is-jump-move? board [row col] [(+ row 2) col]))))
-    (testing "bottom-to-top jumps are valid"
-      ;; NB: pretty nasty representation dependence
-      (doseq [space (filter (comp (partial board/get-space board)
-                              (juxt (comp dec dec first) fnext)
-                              board/get-coords)
-                      board)
-              :let [[row col] (board/get-coords space)]]
-        (is (game/is-jump-move? board [row col] [(- row 2) col]))))
-    (testing "down-and-right jumps are valid only along adjacency lines"
-      (let [make-target-coords (juxt (comp inc inc first)
-                                 (comp inc inc fnext))]
-        ;; NB: pretty nasty representation dependence
-        (doseq [space (filter (comp (partial board/get-space board)
-                                make-target-coords
-                                board/get-coords)
-                        board)
-                :let [coords (board/get-coords space)
-                      target-coords (make-target-coords coords)]]
-          ;; could pull this into filter, but things get messy
-          (let [target (board/get-space board target-coords)]
-            (if (nil? (seq (apply set/intersection
-                             (map (comp set board/get-adj*)
-                               [space target]))))
-                (is (not (game/is-jump-move? board coords target-coords)))
-                (is (game/is-jump-move? board coords target-coords)))))))
-    (testing "down-and-left jumps are valid only along adjacency lines"
-      (let [make-target-coords (juxt (comp inc inc first)
-                                 (comp dec dec fnext))]
-        ;; NB: pretty nasty representation dependence
-        (doseq [space (filter (comp (partial board/get-space board)
-                                make-target-coords
-                                board/get-coords)
-                        board)
-                :let [coords (board/get-coords space)
-                      target-coords (make-target-coords coords)]]
-          ;; could pull this into filter, but things get messy
-          (let [target (board/get-space board target-coords)]
-            (if (nil? (seq (apply set/intersection
-                             (map (comp set board/get-adj*)
-                               [space target]))))
-                (is (not (game/is-jump-move? board coords target-coords)))
-                (is (game/is-jump-move? board coords target-coords)))))))
-    (testing "up-and-right jumps are valid only along adjacency lines"
-      (let [make-target-coords (juxt (comp dec dec first)
-                                 (comp inc inc fnext))]
-        ;; NB: pretty nasty representation dependence
-        (doseq [space (filter (comp (partial board/get-space board)
-                                make-target-coords
-                                board/get-coords)
-                        board)
-                :let [coords (board/get-coords space)
-                      target-coords (make-target-coords coords)]]
-          ;; could pull this into filter, but things get messy
-          (let [target (board/get-space board target-coords)]
-            (if (nil? (seq (apply set/intersection
-                             (map (comp set board/get-adj*)
-                               [space target]))))
-                (is (not (game/is-jump-move? board coords target-coords)))
-                (is (game/is-jump-move? board coords target-coords)))))))
-    (testing "up-and-left jumps are valid only along adjacency lines"
-      (let [make-target-coords (juxt (comp dec dec first)
-                                 (comp dec dec fnext))]
-        ;; NB: pretty nasty representation dependence
-        (doseq [space (filter (comp (partial board/get-space board)
-                                make-target-coords
-                                board/get-coords)
-                        board)
-                :let [coords (board/get-coords space)
-                      target-coords (make-target-coords coords)]]
-          ;; could pull this into filter, but things get messy
-          (let [target (board/get-space board target-coords)]
-            (if (nil? (seq (apply set/intersection
-                             (map (comp set board/get-adj*)
-                               [space target]))))
-                (is (not (game/is-jump-move? board coords target-coords)))
-                (is (game/is-jump-move? board coords target-coords)))))))))
+    (testing "valid jump moves"
+      (doseq [space board
+              :let [coords (board/get-coords space)]]
+        (let [mod-vec [(comp dec dec) identity (partial + 2)]
+              jump-space* (for [row-mod mod-vec
+                                col-mod mod-vec
+                                :let [jump-coords [(row-mod (first coords))
+                                                   (col-mod (fnext coords))]
+                                      jump-space (board/get-space board
+                                                   jump-coords)]
+                                :when (and jump-space
+                                           (not (= jump-coords coords)))]
+                            jump-space)]
+            (let [[src-row src-col] coords
+                  non-jump-space* (map board/get-coords
+                                    (filter (set (conj jump-space* space))
+                                      board))]
+              (doseq [jump-space jump-space*
+                      :let [jump-coords (board/get-coords jump-space)
+                            [dst-row dst-col] jump-coords]]
+                (if (and (or (= src-row dst-row)
+                             (= src-col dst-col)
+                             (let [slope (/ (- dst-col src-col)
+                                            (- dst-row src-row))]
+                               (or (= slope 1) (= slope -1))))
+                         (not (nil? (seq (clojure.set/intersection
+                                           (set (board/get-adj* space))
+                                           (set (board/get-adj* jump-space)))))))
+                     (is (game/is-jump-move? board coords jump-coords))
+                     (is (not (game/is-jump-move? board coords jump-coords)))))))))))
