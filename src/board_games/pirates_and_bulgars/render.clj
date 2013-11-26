@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created  3 Nov 2013
-;; Last modified 13 Nov 2013
+;; Last modified 26 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -12,6 +12,10 @@
   (:require [board-games.pirates-and-bulgars.game-env :as game-env]
             [board-games.pirates-and-bulgars.board :as board]
             [board-games.pirates-and-bulgars.piece :as piece]))
+
+;; NB: someday this will be more complicated when we render messages
+;; NB: to something other than a console
+(def game-msg println)
 
 (defn render-game
   [game-env]

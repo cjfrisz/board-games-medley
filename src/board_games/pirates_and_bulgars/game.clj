@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created 27 Oct 2013
-;; Last modified 18 Nov 2013
+;; Last modified 26 Nov 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -109,20 +109,23 @@
   (let [input (string/upper-case (string/trim (read-line)))]
     (if (> (count input) 2) 
       (do
-        (println "input " input " too long. please try again.")
+        (render/game-msg "input " input " too long. please try again.")
+        (read-line)
         (recur instructions))
       (let [row (get input 0)
             col (get input 1)]
         (cond
           (not-any? #{row} "ABCDEFG")
           ,(do
-             (println "invalid row \"" row "\"")
-             (println "row value must be a letter A-G")
+             (render/game-msg "invalid row \"" row "\"")
+             (render/game-msg "row value must be a letter A-G")
+             (read-line)
              (recur instructions))
           (not-any? #{col} "1234567")
           ,(do
-             (println "invalid column \"" col "\"")
-             (println "column value must be a number 1-7")
+             (render/game-msg "invalid column \"" col "\"")
+             (render/game-msg "column value must be a number 1-7")
+             (read-line)
              (recur instructions))
           :else [(- (int row) (int \A)) (- (int col) (int \1))])))))
 
@@ -133,11 +136,12 @@
 
 (defn do-setup
   [game-env msg next-state]
-  (println msg)
+  (render/game-msg msg)
   (let [[row col] (player-input-coords
                    "enter coordinates to place a bulgar: ")
         try-again! (fn [msg]
-                     (println msg)
+                     (render/game-msg msg)
+                     (read-line)
                      (render/render-game game-env))]
     (cond
      (space-occupied? game-env [row col]) (do
@@ -166,10 +170,12 @@
               (player-input-coords
                 (str "enter space to move " team-string ": ")))
             (do
-              (println "selected piece is not a " team-string)
+              (render/game-msg "selected piece is not a " team-string)
+              (read-line)
               (recur game-env team-string piece-pred? handle-move))))
         (do
-          (println "no piece at those coordinates")
+          (render/game-msg "no piece at those coordinates")
+          (read-line)
           (recur game-env team-string piece-pred? handle-move)))))
 
 (declare do-turn)
@@ -186,7 +192,8 @@
             (game-env/get-pirate* game-env)))
           (game-env/update-state :bulgar-turn))
       (do
-        (println "not a valid move for that piece")
+        (render/game-msg "not a valid move for that piece")
+        (read-line)
         (do-turn game-env :pirate-turn)))))
 
 (defn handle-bulgar-move
@@ -200,7 +207,7 @@
                   captured (get-piece-by-coords game-env mid-coords)]
               (if (game-env/pirate? game-env captured)
                   (do
-                    (println "captured pirate at" (coords->string mid-coords))
+                    (render/game-msg "captured pirate at" (coords->string mid-coords))
                     (-> game-env
                       (game-env/update-pirate*
                         (remove #{captured} (game-env/get-pirate* game-env)))
@@ -209,7 +216,8 @@
                           (game-env/get-bulgar* game-env)))
                       (game-env/update-state :pirate-turn)))
                   (do
-                    (println "cannot jump over another bulgar")
+                    (render/game-msg "cannot jump over another bulgar")
+                    (read-line)
                     (do-turn game-env :bulgar-turn))))
               (-> game-env
                 (game-env/update-bulgar*
@@ -220,8 +228,9 @@
             (if (is-adjacent-move? (game-env/get-board game-env)
                   piece-coords
                   move-coords)
-                (println "selected bulgar has jump move(s) available")
-                (println "not a valid move for that piece"))
+                (render/game-msg "selected bulgar has jump move(s) available")
+                (render/game-msg "not a valid move for that piece"))
+            (read-line)
             (do-turn game-env :bulgar-turn))))))
 
 (defn do-turn
@@ -244,9 +253,9 @@
                      :pirate-turn))
     :pirate-turn (let [new-game-env (do-turn game-env :pirate-turn)]
                    (if (pirates-win? new-game-env)
-                       (println "pirates win!")
+                       (render/game-msg "pirates win!")
                        (recur new-game-env)))
     :bulgar-turn (let [new-game-env (do-turn game-env :bulgar-turn)]
                    (if (bulgars-win? new-game-env)
-                       (println "bulgars win!")
+                       (render/game-msg "bulgars win!")
                        (recur new-game-env)))))
