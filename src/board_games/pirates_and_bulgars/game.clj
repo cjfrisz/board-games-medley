@@ -3,7 +3,7 @@
 ;; Written by Chris Frisz
 ;; 
 ;; Created 27 Oct 2013
-;; Last modified 26 Nov 2013
+;; Last modified  4 Dec 2013
 ;; 
 ;; 
 ;;----------------------------------------------------------------------
@@ -54,7 +54,7 @@
 (defn get-adjacent-moves
   [game-env piece]
   (let [board (game-env/get-board game-env)]
-    (filter (comp not (partial space-occupied? board))
+    (filter (comp not (partial space-occupied? game-env))
       (board/get-adj* (board/get-space board
                         (piece/get-coords piece))))))
 
@@ -69,7 +69,7 @@
   (let [piece-coords (piece/get-coords piece)
         board (game-env/get-board game-env)
         jump-move* (filter (partial is-jump-move? board piece-coords)
-                     (remove (partial space-occupied? board)
+                     (remove (partial space-occupied? game-env)
                        (map board/get-coords board)))]
     (if (nil? (seq jump-move*))
         (get-adjacent-moves game-env piece)
